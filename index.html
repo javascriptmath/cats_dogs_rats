@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" 
+        content="width=device-width, 
+                 initial-scale=1.0">
+  <title>Cats, Dogs, and Rats Minigame</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #1e1e1e; 
+      color: #d4d4d4; 
+    }
+    canvas {
+      border: 1px solid #d4d4d4; 
+      background-color: #252526; 
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" 
+          width="810" 
+          height="1440">
+  </canvas>
+  <script>
+    const canvas = document
+      .getElementById('canvas');
+    const ctx = canvas
+      .getContext('2d');
+
+    const WINDOW_WIDTH = 810;
+    const WINDOW_HEIGHT = 1440;
+    const ENTITY_RADIUS = 5;
+    const SPEED = 3;
+    const DETECTION_RADIUS = 100;
+    const CONVERSION_RADIUS = 20;
+    const EDGE_AVOID_RADIUS = 50;
+    const REPULSION_RADIUS = 20;
+    const ICON_SIZE = 30;
+    const EMOJI_CHANGE_INTERVAL = 2000; 
+
+    const backgroundImg = new Image();
+    backgroundImg.src = 'field.jpg';
+
+    let dogsDeathCelebrated = false;
+
+    class Animal {
+      constructor(x, y, tribe) {
+        this.x = x;
+        this.y = y;
+        this.tribe = tribe;
+        this.currentEmoji = '🐱'; 
+        this.lastEmojiChangeTime = 
+          Date.now(); 
+      }
+
+      moveTowards(targetX, targetY) {
+        const angle = Math.atan2(
+          targetY - this.y, 
+          targetX - this.x
+        );
+        this.x += (SPEED + Math
+                 .random() * 0.6 - 0.3) 
+                 * Math.cos(angle);
+        this.y += (SPEED + Math
+                 .random() * 0.6 - 0.3) 
+                 * Math.sin(angle);
+        this.avoidEdges();
+      }
+
+      moveAwayFrom(targetX, targetY) {
+        const angle = Math.atan2(
+          targetY - this.y, 
+          targetX - this.x
+        );
+        this.x -= (SPEED + Math
+                 .random() * 0.6 - 0.3) 
+                 * Math.cos(angle);
+        this.y -= (SPEED + Math
+                 .random() * 0.6 - 0.3) 
+                 * Math.sin(angle);
+        this.avoidEdges();
+      }
+
+      distanceTo(other) {
+        return Math.sqrt(
+          (this.x - other.x) ** 2 + 
+          (this.y - other.y) ** 2
+        );
+      }
+
+      repelFrom(other) {
+        if (this.distanceTo(other) 
+            < REPULSION_RADIUS) {
+          this.moveAwayFrom(
+            other.x, other.y
+          );
+        }
+      }
+
+      draw() {
+        ctx.font = `${ICON_SIZE}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        
+        if (this.tribe === 'cats') {
+          ctx.fillText(
+            this.currentEmoji, 
+            this.x, this.y
+          );
+        } else if (this.tribe === 'dogs') {
+          ctx.fillText(
+            '🐺', this.x, this.y
+          ); 
+        } else {
+          ctx.fillText(
+            '🐀', this.x, this.y
+          ); 
+        }
+      }
+
+      avoidEdges() {
+        if (this.x < EDGE_AVOID_RADIUS) {
+          this.moveTowards(
+            this.x + EDGE_AVOID_RADIUS, 
+            this.y
+          );
+        } else if (this.x > 
+                   WINDOW_WIDTH - 
+                   EDGE_AVOID_RADIUS) {
+          this.moveTowards(
+            this.x - EDGE_AVOID_RADIUS, 
+            this.y
+          );
+        }
+        if (this.y < EDGE_AVOID_RADIUS) {
+          this.moveTowards(
+            this.x, 
+            this.y + EDGE_AVOID_RADIUS
+          );
+        } else if (this.y > 
+                   WINDOW_HEIGHT - 
+                   EDGE_AVOID_RADIUS) {
+          this.moveTowards(
+            this.x, 
+            this.y - EDGE_AVOID_RADIUS
+          );
+        }
+      }
+    }
+
+    const animals = [];
+    for (let i = 0; i < 50; i++) {
+      animals.push(new Animal(
+        Math.random() * WINDOW_WIDTH, 
+        Math.random() * WINDOW_HEIGHT, 
+        'cats'
+      ));
+      animals.push(new Animal(
+        Math.random() * WINDOW_WIDTH, 
+        Math.random() * WINDOW_HEIGHT, 
+        'dogs'
+      ));
+      animals.push(new Animal(
+        Math.random() * WINDOW_WIDTH, 
+        Math.random() * WINDOW_HEIGHT, 
+        'rats'
+      ));
+    }
+
+    function adjustMovement() {
+      animals.forEach(animal => {
+        let targets, threats;
+        if (animal.tribe === 'cats') {
+          targets = animals.filter(
+            a => a.tribe === 'rats'
+          );
+          threats = animals.filter(
+            a => a.tribe === 'dogs'
+          );
+        } else if (animal.tribe === 'dogs') {
+          targets = animals.filter(
+            a => a.tribe === 'cats'
+          );
+          threats = animals.filter(
+            a => a.tribe === 'rats'
+          );
+        } else {
+          targets = animals.filter(
+            a => a.tribe === 'dogs'
+          );
+          threats = animals.filter(
+            a => a.tribe === 'cats'
+          );
+        }
+
+        animals.forEach(other => {
+          if (animal !== other && 
+              animal.tribe === 
+              other.tribe) {
+            animal.repelFrom(other);
+          }
+        });
+
+        const closestTarget = 
+          targets.reduce(
+            (closest, a) => 
+              !closest || 
+              animal.distanceTo(a) < 
+              animal.distanceTo(closest) 
+              ? a : closest, null
+          );
+        const closestThreat = 
+          threats.reduce(
+            (closest, a) => 
+              !closest || 
+              animal.distanceTo(a) < 
+              animal.distanceTo(closest) 
+              ? a : closest, null
+          );
+
+        if (closestThreat && 
+            animal.distanceTo(
+              closestThreat
+            ) < DETECTION_RADIUS) {
+          animal.moveAwayFrom(
+            closestThreat.x, 
+            closestThreat.y
+          );
+          if (animal.tribe === 'cats' 
+              && Date.now() - 
+              animal.lastEmojiChangeTime > 
+              EMOJI_CHANGE_INTERVAL) {
+            animal.currentEmoji = '🙀'; 
+            animal.lastEmojiChangeTime = 
+              Date.now(); 
+          }
+        } else if (closestTarget && 
+                   animal.distanceTo(
+                     closestTarget
+                   ) < DETECTION_RADIUS) {
+          animal.moveTowards(
+            closestTarget.x, 
+            closestTarget.y
+          );
+          if (animal.tribe === 'cats' 
+              && Date.now() - 
+              animal.lastEmojiChangeTime > 
+              EMOJI_CHANGE_INTERVAL) {
+            animal.currentEmoji = '😼'; 
+            animal.lastEmojiChangeTime = 
+              Date.now(); 
+          }
+          if (animal.distanceTo(
+                closestTarget
+              ) < CONVERSION_RADIUS) {
+            closestTarget.tribe = 
+              animal.tribe;
+            if (animal.tribe === 'cats') {
+              animal.currentEmoji = '😸'; 
+              animal.lastEmojiChangeTime = 
+                Date.now(); 
+            }
+          }
+        } else {
+          animal.moveTowards(
+            Math.random() * WINDOW_WIDTH, 
+            Math.random() * WINDOW_HEIGHT
+          );
+          if (animal.tribe === 'cats' 
+              && Date.now() - 
+              animal.lastEmojiChangeTime > 
+              EMOJI_CHANGE_INTERVAL) {
+            animal.currentEmoji = '🐱'; 
+            animal.lastEmojiChangeTime = 
+              Date.now(); 
+          }
+        }
+
+        animal.draw();
+      });
+    }
+
+    function displayWinner(winnerText) {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(
+        WINDOW_WIDTH / 2 - 220, 
+        WINDOW_HEIGHT / 2 - 120, 
+        440, 240
+      );
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 60px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        "🏆 Winner!", 
+        WINDOW_WIDTH / 2, 
+        WINDOW_HEIGHT / 2 - 20
+      );
+
+      ctx.font = "bold 48px Arial";
+      ctx.fillStyle = "#FFD700"; 
+      ctx.fillText(
+        winnerText, 
+        WINDOW_WIDTH / 2, 
+        WINDOW_HEIGHT / 2 + 60
+      );
+    }
+
+    function gameLoop() {
+      ctx.clearRect(
+        0, 0, 
+        WINDOW_WIDTH, WINDOW_HEIGHT
+      );
+
+      const pattern = 
+        ctx.createPattern(
+          backgroundImg, 'repeat'
+        );
+      ctx.fillStyle = pattern;
+      ctx.fillRect(
+        0, 0, 
+        WINDOW_WIDTH, WINDOW_HEIGHT
+      );
+
+      adjustMovement();
+
+      const catsCount = animals
+        .filter(
+          animal => 
+          animal.tribe === 'cats'
+        ).length;
+      const dogsCount = animals
+        .filter(
+          animal => 
+          animal.tribe === 'dogs'
+        ).length;
+      const ratsCount = animals
+        .filter(
+          animal => 
+          animal.tribe === 'rats'
+        ).length;
+
+      if (dogsCount === 0 && 
+          !dogsDeathCelebrated) {
+        animals.forEach(animal => {
+          if (animal.tribe === 'cats') {
+            animal.currentEmoji = '😸'; 
+            animal.lastEmojiChangeTime = 
+              Date.now(); 
+          }
+        });
+        dogsDeathCelebrated = true;
+      }
+
+      let winnerText = null;
+      if (catsCount === animals.length) {
+        winnerText = "Cats";
+      } else if (dogsCount === 
+                 animals.length) {
+        winnerText = "Dogs";
+      } else if (ratsCount === 
+                 animals.length) {
+        winnerText = "Rats";
+      }
+
+      if (winnerText) {
+        displayWinner(winnerText);
+        return; 
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    backgroundImg.onload = () => {
+      gameLoop();
+    };
+  </script>
+</body>
+</html>
