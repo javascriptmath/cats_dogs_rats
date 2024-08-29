@@ -4,7 +4,7 @@ Welcome to the **Cats, Dogs, and Rats Minigame**, a fun and dynamic simulation g
 
 ## 🚀 Demo
 
-Check out the live demo of the game [here](#).
+Check out the live demo of the game [here](https://javascriptmath.github.io/cats_dogs_rats/).
 
 ## 🎮 Game Overview
 
